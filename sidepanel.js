@@ -13,7 +13,6 @@ class SidePanelManager {
       jobTitle: 'Job Title',
       company: 'Company',
       location: 'Location',
-      bio: 'Bio',
       email: 'Email',
       phone: 'Phone',
       profileUrl: 'LinkedIn URL',
@@ -277,7 +276,6 @@ class SidePanelManager {
           jobTitle: 'Test Position',
           company: 'Test Company',
           location: 'Test Location',
-          bio: 'Test bio information',
           email: 'test@example.com',
           phone: '+1234567890',
           profileUrl: 'https://linkedin.com/in/test',
@@ -417,7 +415,7 @@ class SidePanelManager {
 
     // Auto-fill fields and mark them as auto-filled
     const autoFillFields = [
-      'fullName', 'jobTitle', 'company', 'location', 'bio', 'profileUrl'
+      'fullName', 'jobTitle', 'company', 'location', 'profileUrl'
     ];
 
     autoFillFields.forEach(fieldId => {
@@ -620,7 +618,6 @@ class SidePanelManager {
       jobTitle: document.getElementById('jobTitle').value.trim(),
       company: document.getElementById('company').value.trim(),
       location: document.getElementById('location').value.trim(),
-      bio: document.getElementById('bio').value.trim(),
       profileUrl: document.getElementById('profileUrl').value.trim(),
       email: document.getElementById('email').value.trim(),
       phone: document.getElementById('phone').value.trim(),
@@ -865,7 +862,6 @@ class SidePanelManager {
       jobTitle: ['singleLineText', 'multilineText', 'richText'],
       company: ['singleLineText', 'multilineText', 'richText'],
       location: ['singleLineText', 'multilineText', 'richText'],
-      bio: ['multilineText', 'richText', 'singleLineText'],
       profileUrl: ['url', 'singleLineText', 'multilineText'],
       profilePicture: ['url', 'multipleAttachments', 'singleLineText'],
       email: ['email', 'singleLineText', 'multilineText'],

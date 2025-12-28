@@ -288,7 +288,6 @@ class BackgroundService {
       jobTitle: 'Job Title',
       company: 'Company',
       location: 'Location',
-      bio: 'Bio',
       email: 'Email',
       phone: 'Phone',
       profileUrl: 'LinkedIn URL',

@@ -94,7 +94,6 @@ class LinkedInProfileExtractor {
         jobTitle: this.extractJobTitle(),
         company: this.extractCompany(),
         location: this.extractLocation(),
-        bio: this.extractBio(),
         profileUrl: window.location.href,
         profilePicture: this.extractProfilePicture(),
         scrapedAt: new Date().toISOString()
@@ -168,11 +167,6 @@ class LinkedInProfileExtractor {
     return element ? TextCleaners.cleanText(element.textContent) : '';
   }
 
-  extractBio() {
-    const element = this.findElement(LinkedInSelectors.bio);
-    let bio = element ? TextCleaners.cleanText(element.textContent) : '';
-    return TextCleaners.cleanBio(bio);
-  }
 
   extractProfilePicture() {
     const element = this.findElement(LinkedInSelectors.profilePicture);

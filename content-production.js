@@ -115,7 +115,6 @@ class LinkedInProfileExtractor {
         jobTitle: this.extractJobTitle(),
         company: this.extractCompany(),
         location: this.extractLocation(),
-        bio: this.extractBio(),
         profileUrl: window.location.href,
         profilePicture: this.extractProfilePicture(),
         scrapedAt: new Date().toISOString()
@@ -216,17 +215,6 @@ class LinkedInProfileExtractor {
     return element ? this.cleanText(element.textContent) : '';
   }
 
-  extractBio() {
-    const selectors = [
-      'section[data-section="about"] .pv-shared-text-with-see-more span[aria-hidden="true"]',
-      'section[data-section="about"] .inline-show-more-text',
-      '.pv-about-section .pv-about__summary-text span[aria-hidden="true"]'
-    ];
-
-    const element = this.findElement(selectors);
-    let bio = element ? this.cleanText(element.textContent) : '';
-    return this.cleanBio(bio);
-  }
 
   extractProfilePicture() {
     const selectors = [
@@ -285,15 +273,6 @@ class LinkedInProfileExtractor {
       .trim();
   }
 
-  cleanBio(bio) {
-    if (!bio) return '';
-
-    return bio
-      .replace(/\s*(Show more|See more)\s*$/i, '')
-      .replace(/^…+\s*/, '')
-      .replace(/\s*…+$/, '')
-      .trim();
-  }
 
   cleanProfileData(data) {
     const cleaned = {};

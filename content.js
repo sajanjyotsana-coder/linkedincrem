@@ -250,10 +250,20 @@ class LinkedInProfileExtractor {
       'section[data-section="experience"] li:first-child .t-bold span[aria-hidden="true"]',
       'section[data-section="experience"] li:first-child .t-bold',
 
+      // New selectors for current LinkedIn structure
+      '#experience ~ div li:first-child .t-bold span[aria-hidden="true"]',
+      '#experience ~ div li:first-child .t-bold',
+      '#experience + div li:first-child .t-bold span[aria-hidden="true"]',
+      '#experience + div li:first-child .t-bold',
+
       // Experience section with pvs-list class
       '.experience-section .pvs-list__paged-list-item:first-child .mr1.t-bold span[aria-hidden="true"]',
       '.experience-section .pvs-list__paged-list-item:first-child .t-bold span[aria-hidden="true"]',
       '.experience-section .pvs-list__paged-list-item:first-child .t-bold',
+
+      // Generic bold text in first experience item
+      'section .pvs-list li:first-child .t-bold span[aria-hidden="true"]',
+      'section .pvs-list li:first-child .t-bold',
 
       // Legacy experience selectors
       '.experience-section .pv-entity__summary-info:first-child h3 span[aria-hidden="true"]',
@@ -371,14 +381,53 @@ class LinkedInProfileExtractor {
   extractCompany() {
     console.log('🏢 Starting company extraction from Experience section...');
 
-    // First, detect if this is a grouped experience (multiple roles at one company)
-    const firstExperienceItem = document.querySelector('[data-field="experience"] .pvs-list__paged-list-item:first-child') ||
-                                 document.querySelector('section[data-section="experience"] li:first-child') ||
-                                 document.querySelector('.experience-section li:first-child');
+    // Try multiple ways to find the first experience item
+    const experienceSelectors = [
+      '[data-field="experience"] .pvs-list__paged-list-item:first-child',
+      'section[data-section="experience"] li:first-child',
+      '#experience ~ div li:first-child',
+      '#experience + div li:first-child',
+      'section:has(#experience) li:first-child',
+      'div:has(> div > span:has(> #experience)) ul li:first-child',
+      '.experience-section li:first-child',
+      'section .pvs-list li:first-child'
+    ];
+
+    let firstExperienceItem = null;
+    for (const selector of experienceSelectors) {
+      try {
+        firstExperienceItem = document.querySelector(selector);
+        if (firstExperienceItem) {
+          console.log(`✅ Found experience item with selector: ${selector}`);
+          break;
+        }
+      } catch (e) {
+        console.log(`Selector failed: ${selector}`);
+      }
+    }
 
     if (!firstExperienceItem) {
-      console.warn('❌ No experience section found on page');
+      console.warn('❌ No experience section found on page with standard selectors');
       console.log('Available sections:', Array.from(document.querySelectorAll('section[data-section]')).map(s => s.getAttribute('data-section')));
+      console.log('Trying alternative approach...');
+
+      // Try to find any section containing "Experience" text
+      const allSections = document.querySelectorAll('section');
+      for (const section of allSections) {
+        const heading = section.querySelector('h2, h3, [id*="experience"], [id="experience"]');
+        if (heading && heading.textContent.toLowerCase().includes('experience')) {
+          console.log('Found Experience section by text content');
+          firstExperienceItem = section.querySelector('li:first-child, ul > div:first-child');
+          if (firstExperienceItem) {
+            console.log('✅ Found experience item via text-based search');
+            break;
+          }
+        }
+      }
+    }
+
+    if (!firstExperienceItem) {
+      console.warn('❌ Could not locate any experience items');
       return '';
     }
 
@@ -485,6 +534,11 @@ class LinkedInProfileExtractor {
       'section[data-section="experience"] .pvs-list__paged-list-item:first-child > div .t-14.t-normal span[aria-hidden="true"]',
       'section[data-section="experience"] li:first-child > div > div:first-child .t-14.t-normal',
 
+      // New grouped selectors
+      '#experience ~ div li:first-child > div .t-14.t-normal span[aria-hidden="true"]',
+      '#experience + div li:first-child > div .t-14.t-normal span[aria-hidden="true"]',
+      'section .pvs-list li:first-child > div .t-14.t-normal span[aria-hidden="true"]',
+
       // Legacy grouped
       '.experience-section .pv-entity__company-summary-info .pv-entity__secondary-title',
       '.experience-section li:first-child > .pv-entity__company-summary-info h3 + span'
@@ -506,6 +560,12 @@ class LinkedInProfileExtractor {
       '[data-field="experience"] .pvs-list__paged-list-item:first-child span.t-14.t-normal',
       '[data-field="experience"] li:first-child .t-14.t-normal',
 
+      // New selectors for current LinkedIn structure
+      '#experience ~ div li:first-child .t-14.t-normal span[aria-hidden="true"]',
+      '#experience ~ div li:first-child .t-14.t-normal:not(.t-bold)',
+      '#experience + div li:first-child .t-14.t-normal span[aria-hidden="true"]',
+      '#experience + div li:first-child .t-14.t-normal:not(.t-bold)',
+
       // Experience section variations
       'section[data-section="experience"] .pvs-list__paged-list-item:first-child .t-14.t-normal span[aria-hidden="true"]',
       'section[data-section="experience"] li:first-child .t-14.t-normal:not(.t-bold)',
@@ -513,6 +573,10 @@ class LinkedInProfileExtractor {
       '.experience-section .pvs-list__paged-list-item:first-child .t-14.t-normal span[aria-hidden="true"]',
       '.experience-section .pvs-list__paged-list-item:first-child .t-14.t-normal',
       '.experience-section .pvs-list__paged-list-item:first-child .pv-entity__secondary-title',
+
+      // Generic selectors for pvs-list structure
+      'section .pvs-list li:first-child .t-14.t-normal span[aria-hidden="true"]',
+      'section .pvs-list li:first-child .t-14.t-normal:not(.t-bold)',
 
       // Legacy experience selectors
       '.experience-section .pv-entity__summary-info:first-child .pv-entity__secondary-title',

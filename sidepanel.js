@@ -20,6 +20,9 @@ class SidePanelManager {
       tags: 'Tag',
       notes: 'Notes'
     };
+    this.tagStorage = new TagStorageService();
+    this.selectedSuggestionIndex = -1;
+    this.currentSuggestions = [];
     this.init();
   }
 
@@ -101,6 +104,37 @@ class SidePanelManager {
         );
       }
     });
+
+    // Tag suggestions event listeners
+    const tagsInput = document.getElementById('tags');
+    if (tagsInput) {
+      tagsInput.addEventListener('input', () => this.handleTagsInput());
+      tagsInput.addEventListener('focus', () => this.handleTagsInput());
+      tagsInput.addEventListener('blur', () => {
+        setTimeout(() => this.hideSuggestions(), 200);
+      });
+      tagsInput.addEventListener('keydown', (e) => this.handleTagsKeydown(e));
+    }
+
+    // Tag management event listeners
+    document.getElementById('refreshStats')?.addEventListener('click', () => {
+      this.refreshTagStatistics();
+    });
+
+    document.getElementById('exportTags')?.addEventListener('click', () => {
+      this.exportTags();
+    });
+
+    document.getElementById('importTags')?.addEventListener('click', () => {
+      this.importTags();
+    });
+
+    document.getElementById('clearTags')?.addEventListener('click', () => {
+      this.clearAllTags();
+    });
+
+    // Initialize tag statistics
+    this.refreshTagStatistics();
   }
 
   /**
@@ -559,6 +593,13 @@ class SidePanelManager {
         this.showAlert(alertMessage, 'success');
         this.updateStatus('Saved successfully');
 
+        // Record tags for suggestions
+        const tags = contactData.tags;
+        if (tags) {
+          await this.tagStorage.recordTags(tags);
+          await this.refreshTagStatistics();
+        }
+
         // Clear manual fields but keep auto-filled data
         this.clearManualFields();
       } else {
@@ -949,5 +990,258 @@ Object.assign(SidePanelManager.prototype, {
       ...result.airtableConfig,
       fieldMappings: result.fieldMappings || {}
     };
+  },
+
+  /**
+   * Handle tags input for suggestions
+   */
+  async handleTagsInput() {
+    const tagsInput = document.getElementById('tags');
+    const inputValue = tagsInput.value;
+
+    const tags = inputValue.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    const currentTag = tags.length > 0 ? tags[tags.length - 1] : '';
+    const excludeTags = tags.slice(0, -1);
+
+    if (currentTag.length === 0 && tags.length === 0) {
+      this.hideSuggestions();
+      return;
+    }
+
+    const suggestions = await this.tagStorage.getSuggestions(currentTag, excludeTags, 20);
+    this.currentSuggestions = suggestions;
+    this.selectedSuggestionIndex = -1;
+
+    this.renderSuggestions(suggestions);
+  },
+
+  /**
+   * Render tag suggestions
+   */
+  renderSuggestions(suggestions) {
+    const suggestionsContainer = document.getElementById('tagSuggestions');
+    const suggestionsContent = document.getElementById('tagSuggestionsContent');
+    const suggestionsEmpty = document.getElementById('tagSuggestionsEmpty');
+
+    if (suggestions.length === 0) {
+      suggestionsEmpty.style.display = 'block';
+      suggestionsContent.innerHTML = '';
+      suggestionsContainer.classList.add('visible');
+      return;
+    }
+
+    suggestionsEmpty.style.display = 'none';
+
+    const mostUsed = suggestions.slice(0, 10);
+    const recent = suggestions.slice(0, 5).sort((a, b) => b.lastUsed - a.lastUsed);
+
+    let html = '';
+
+    if (mostUsed.length > 0) {
+      html += '<div class="tag-suggestions__section">';
+      html += '<div class="tag-suggestions__section-title">Most Used</div>';
+      mostUsed.forEach((suggestion, index) => {
+        html += `
+          <div class="tag-suggestion-item" data-tag="${this.escapeHtml(suggestion.tag)}" data-index="${index}">
+            <span class="tag-suggestion-item__name">${this.escapeHtml(suggestion.tag)}</span>
+            <span class="tag-suggestion-item__badge">${suggestion.count}</span>
+          </div>
+        `;
+      });
+      html += '</div>';
+    }
+
+    suggestionsContent.innerHTML = html;
+
+    const items = suggestionsContent.querySelectorAll('.tag-suggestion-item');
+    items.forEach(item => {
+      item.addEventListener('click', () => {
+        const tag = item.dataset.tag;
+        this.selectTag(tag);
+      });
+    });
+
+    suggestionsContainer.classList.add('visible');
+  },
+
+  /**
+   * Handle keyboard navigation in tag suggestions
+   */
+  handleTagsKeydown(e) {
+    const suggestionsContainer = document.getElementById('tagSuggestions');
+
+    if (!suggestionsContainer.classList.contains('visible')) {
+      return;
+    }
+
+    const items = suggestionsContainer.querySelectorAll('.tag-suggestion-item');
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this.selectedSuggestionIndex = Math.min(
+        this.selectedSuggestionIndex + 1,
+        items.length - 1
+      );
+      this.updateSelectedSuggestion(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, 0);
+      this.updateSelectedSuggestion(items);
+    } else if (e.key === 'Enter' && this.selectedSuggestionIndex >= 0) {
+      e.preventDefault();
+      const selectedItem = items[this.selectedSuggestionIndex];
+      if (selectedItem) {
+        const tag = selectedItem.dataset.tag;
+        this.selectTag(tag);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      this.hideSuggestions();
+    }
+  },
+
+  /**
+   * Update selected suggestion visual state
+   */
+  updateSelectedSuggestion(items) {
+    items.forEach((item, index) => {
+      if (index === this.selectedSuggestionIndex) {
+        item.classList.add('selected');
+        item.scrollIntoView({ block: 'nearest' });
+      } else {
+        item.classList.remove('selected');
+      }
+    });
+  },
+
+  /**
+   * Select a tag from suggestions
+   */
+  selectTag(tag) {
+    const tagsInput = document.getElementById('tags');
+    const currentValue = tagsInput.value;
+    const tags = currentValue.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+    tags[tags.length - 1] = tag;
+
+    tagsInput.value = tags.join(', ') + ', ';
+    tagsInput.focus();
+
+    this.handleTagsInput();
+  },
+
+  /**
+   * Hide tag suggestions
+   */
+  hideSuggestions() {
+    const suggestionsContainer = document.getElementById('tagSuggestions');
+    suggestionsContainer.classList.remove('visible');
+    this.selectedSuggestionIndex = -1;
+  },
+
+  /**
+   * Refresh tag statistics display
+   */
+  async refreshTagStatistics() {
+    const stats = await this.tagStorage.getStatistics();
+
+    const totalTagsElement = document.getElementById('totalTags');
+    const mostUsedTagElement = document.getElementById('mostUsedTag');
+
+    if (totalTagsElement) {
+      totalTagsElement.textContent = stats.totalTags;
+    }
+
+    if (mostUsedTagElement) {
+      if (stats.mostUsedTag) {
+        mostUsedTagElement.textContent = `${stats.mostUsedTag} (${stats.mostUsedCount})`;
+      } else {
+        mostUsedTagElement.textContent = '-';
+      }
+    }
+  },
+
+  /**
+   * Export tags to JSON
+   */
+  async exportTags() {
+    const json = await this.tagStorage.exportTags();
+
+    if (!json) {
+      this.showAlert('Failed to export tags', 'error');
+      return;
+    }
+
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tag-suggestions-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    this.showAlert('Tags exported successfully', 'success');
+  },
+
+  /**
+   * Import tags from JSON
+   */
+  async importTags() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+
+      if (!file) {
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        const success = await this.tagStorage.importTags(text);
+
+        if (success) {
+          this.showAlert('Tags imported successfully', 'success');
+          await this.refreshTagStatistics();
+        } else {
+          this.showAlert('Failed to import tags. Invalid file format.', 'error');
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        this.showAlert('Failed to import tags', 'error');
+      }
+    };
+
+    input.click();
+  },
+
+  /**
+   * Clear all tags
+   */
+  async clearAllTags() {
+    const confirmed = confirm(
+      'Are you sure you want to clear all tag suggestions? This cannot be undone.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await this.tagStorage.clearAllTags();
+    await this.refreshTagStatistics();
+    this.showAlert('All tags cleared', 'success');
+  },
+
+  /**
+   * Escape HTML for safe rendering
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 });

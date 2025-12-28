@@ -143,7 +143,41 @@
             Test Field Mappings
           </button>
         </div>
-        
+
+        <!-- Tag Management Section -->
+        <div class="tag-management-section">
+          <h3 class="tag-management__title">Tag Suggestions</h3>
+          <p class="tag-management__description">
+            Manage your locally stored tag suggestions
+          </p>
+
+          <div class="tag-stats" id="tagStats">
+            <div class="tag-stat">
+              <span class="tag-stat__label">Total Tags:</span>
+              <span class="tag-stat__value" id="totalTags">0</span>
+            </div>
+            <div class="tag-stat">
+              <span class="tag-stat__label">Most Used:</span>
+              <span class="tag-stat__value" id="mostUsedTag">-</span>
+            </div>
+          </div>
+
+          <div class="tag-management-actions">
+            <button type="button" class="btn btn--secondary btn--small" id="refreshStats">
+              Refresh Stats
+            </button>
+            <button type="button" class="btn btn--secondary btn--small" id="exportTags">
+              Export Tags
+            </button>
+            <button type="button" class="btn btn--secondary btn--small" id="importTags">
+              Import Tags
+            </button>
+            <button type="button" class="btn btn--danger btn--small" id="clearTags">
+              Clear All Tags
+            </button>
+          </div>
+        </div>
+
         <button class="btn btn--secondary" id="saveConfig">
           Save Configuration
         </button>
@@ -245,12 +279,22 @@
         
         <div class="field-group">
           <label for="tags" class="field-label">Tags</label>
-          <input 
-            type="text" 
-            id="tags" 
-            class="field-input"
-            placeholder="e.g., prospect, warm-lead, decision-maker"
-          >
+          <div class="tags-input-wrapper">
+            <input
+              type="text"
+              id="tags"
+              class="field-input"
+              placeholder="e.g., prospect, warm-lead, decision-maker"
+              autocomplete="off"
+            >
+            <div class="tag-suggestions" id="tagSuggestions">
+              <div class="tag-suggestions__content" id="tagSuggestionsContent">
+                <div class="tag-suggestions__empty" id="tagSuggestionsEmpty">
+                  Start adding tags to see suggestions
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="field-hint">Separate tags with commas</div>
         </div>
         
@@ -281,6 +325,7 @@
     <div class="alert" id="alertMessage"></div>
   </div>
 
+  <script src="tag-storage.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

@@ -18,6 +18,7 @@ const filesToCopy = [
   'content.js',
   'sidepanel.html',
   'sidepanel.js',
+  'tag-storage.js',
   'styles.css'
 ];
 

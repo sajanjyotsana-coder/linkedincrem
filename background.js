@@ -293,7 +293,9 @@ class BackgroundService {
       profileUrl: 'LinkedIn URL',
       profilePicture: 'Profile Picture',
       tags: 'Tag',
-      notes: 'Notes'
+      notes: 'Notes',
+      contactDate: 'Contact Date',
+      followUpDate: 'Follow Up On'
     };
 
     const mappings = { ...defaultMappings, ...fieldMappings };

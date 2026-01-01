@@ -87,10 +87,18 @@ class SidePanelManager {
 
     // Auto-save configuration on input
     ['apiToken', 'baseId', 'tableId'].forEach(fieldId => {
-      document.getElementById(fieldId).addEventListener('input', 
+      document.getElementById(fieldId).addEventListener('input',
         this.debounce(() => this.saveConfiguration(), 1000)
       );
     });
+
+    // Auto-save when duplicate prevention toggle changes
+    const preventDuplicatesCheckbox = document.getElementById('preventDuplicates');
+    if (preventDuplicatesCheckbox) {
+      preventDuplicatesCheckbox.addEventListener('change', () => {
+        this.saveConfiguration();
+      });
+    }
 
     // Auto-save field mappings on input and update badges
     Object.keys(this.defaultFieldMappings).forEach(dataKey => {
@@ -203,18 +211,23 @@ class SidePanelManager {
   async loadConfiguration() {
     try {
       const result = await chrome.storage.sync.get(['airtableConfig', 'fieldMappings']);
-      
+
       if (result.airtableConfig) {
         const config = result.airtableConfig;
         document.getElementById('apiToken').value = config.apiToken || '';
         document.getElementById('baseId').value = config.baseId || '';
         document.getElementById('tableId').value = config.tableId || '';
+
+        const preventDuplicatesCheckbox = document.getElementById('preventDuplicates');
+        if (preventDuplicatesCheckbox) {
+          preventDuplicatesCheckbox.checked = config.preventDuplicates !== false;
+        }
       }
 
       // Load field mappings
       this.fieldMappings = result.fieldMappings || {};
       this.populateFieldMappings();
-      
+
     } catch (error) {
       console.error('Failed to load configuration:', error);
       this.showAlert('Failed to load saved configuration', 'error');
@@ -225,10 +238,12 @@ class SidePanelManager {
    * Save configuration to storage
    */
   async saveConfiguration() {
+    const preventDuplicatesCheckbox = document.getElementById('preventDuplicates');
     const config = {
       apiToken: document.getElementById('apiToken').value.trim(),
       baseId: document.getElementById('baseId').value.trim(),
-      tableId: document.getElementById('tableId').value.trim()
+      tableId: document.getElementById('tableId').value.trim(),
+      preventDuplicates: preventDuplicatesCheckbox ? preventDuplicatesCheckbox.checked : true
     };
 
     // Collect field mappings

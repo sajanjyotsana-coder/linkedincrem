@@ -147,51 +147,84 @@ class BackgroundService {
       console.log('Request URL:', url);
       console.log('Request body:', JSON.stringify({ fields: validFields }, null, 2));
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.apiToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          fields: validFields
-        })
-      });
+      // Check for existing record if duplicate prevention is enabled
+      const preventDuplicates = config.preventDuplicates !== false;
+      let existingRecord = null;
+      let isUpdate = false;
 
-      // Always try to get response data, even if response is not ok
-      try {
-        responseData = await response.json();
-      } catch (jsonError) {
-        console.warn('Failed to parse response JSON:', jsonError);
-        responseData = {};
+      if (preventDuplicates && contactData.profileUrl) {
+        console.log('Checking for existing record with LinkedIn URL:', contactData.profileUrl);
+        existingRecord = await this.findExistingRecord(contactData.profileUrl, config);
       }
 
-      if (!response.ok) {
-        const errorInfo = this.parseAirtableError(
-          new Error(`HTTP ${response.status}: ${response.statusText}`),
-          responseData,
-          fields
-        );
+      let result;
+      if (existingRecord) {
+        console.log('Updating existing record:', existingRecord.id);
+        result = await this.updateRecord(existingRecord.id, validFields, config);
+        isUpdate = true;
+      } else {
+        console.log('Creating new record');
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.apiToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fields: validFields
+          })
+        });
 
-        return {
-          success: false,
-          error: errorInfo.message,
-          unknownFields: errorInfo.unknownFields,
-          fieldErrors: errorInfo.fieldErrors
+        // Always try to get response data, even if response is not ok
+        try {
+          responseData = await response.json();
+        } catch (jsonError) {
+          console.warn('Failed to parse response JSON:', jsonError);
+          responseData = {};
+        }
+
+        if (!response.ok) {
+          const errorInfo = this.parseAirtableError(
+            new Error(`HTTP ${response.status}: ${response.statusText}`),
+            responseData,
+            fields
+          );
+
+          return {
+            success: false,
+            error: errorInfo.message,
+            unknownFields: errorInfo.unknownFields,
+            fieldErrors: errorInfo.fieldErrors
+          };
+        }
+
+        result = {
+          success: true,
+          recordId: responseData.id,
+          message: 'Contact saved successfully to Airtable',
+          excludedFields: excludedFields
         };
       }
 
+      if (!result.success) {
+        return result;
+      }
+
       // Build success message with exclusion info
-      let message = 'Contact saved successfully to Airtable';
+      let message = isUpdate
+        ? 'Contact updated successfully in Airtable'
+        : 'Contact saved successfully to Airtable';
+
       if (excludedFields.length > 0) {
         message += ` (${excludedFields.length} field${excludedFields.length > 1 ? 's' : ''} excluded due to type mismatches)`;
       }
 
       return {
         success: true,
-        recordId: responseData.id,
+        recordId: result.recordId,
         message: message,
-        excludedFields: excludedFields
+        excludedFields: excludedFields,
+        isUpdate: isUpdate
       };
 
     } catch (error) {
@@ -874,6 +907,106 @@ class BackgroundService {
       }
 
       return null;
+    }
+  }
+
+  /**
+   * Find existing record by LinkedIn URL to prevent duplicates
+   */
+  async findExistingRecord(profileUrl, config) {
+    if (!profileUrl || !profileUrl.trim()) {
+      return null;
+    }
+
+    try {
+      // Use Airtable's filter API to search for records with matching LinkedIn URL
+      const encodedUrl = encodeURIComponent(`{LinkedIn URL} = '${profileUrl}'`);
+      const searchUrl = `https://api.airtable.com/v0/${config.baseId}/${config.tableId}?filterByFormula=${encodedUrl}`;
+
+      const response = await fetch(searchUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${config.apiToken}`
+        }
+      });
+
+      if (!response.ok) {
+        console.warn('Could not search for existing record:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (data.records && data.records.length > 0) {
+        console.log(`Found existing record for profile: ${profileUrl}`);
+        return data.records[0];
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('Error searching for existing record:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update an existing Airtable record
+   */
+  async updateRecord(recordId, fields, config) {
+    try {
+      const url = `https://api.airtable.com/v0/${config.baseId}/${config.tableId}/${recordId}?typecast=true`;
+
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${config.apiToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fields: fields
+        })
+      });
+
+      let responseData = null;
+      try {
+        responseData = await response.json();
+      } catch (jsonError) {
+        console.warn('Failed to parse update response JSON:', jsonError);
+        responseData = {};
+      }
+
+      if (!response.ok) {
+        const errorInfo = this.parseAirtableError(
+          new Error(`HTTP ${response.status}: ${response.statusText}`),
+          responseData,
+          fields
+        );
+
+        return {
+          success: false,
+          error: errorInfo.message,
+          unknownFields: errorInfo.unknownFields,
+          fieldErrors: errorInfo.fieldErrors
+        };
+      }
+
+      return {
+        success: true,
+        recordId: responseData.id,
+        message: 'Contact updated successfully in Airtable',
+        isUpdate: true
+      };
+    } catch (error) {
+      console.error('Airtable update error:', error);
+
+      const errorInfo = this.parseAirtableError(error, null, fields);
+
+      return {
+        success: false,
+        error: errorInfo.message,
+        unknownFields: errorInfo.unknownFields,
+        fieldErrors: errorInfo.fieldErrors
+      };
     }
   }
 
